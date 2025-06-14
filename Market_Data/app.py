@@ -48,11 +48,16 @@ if __name__ == "__main__":
     print("\n🔍 Running agent...\n")
     result = agent.run(inputs)
 
-    print(result)
+    # print(result)
     for symbol, data in result.items():
         print(f"\n📈 {symbol}:\n")
         if "error" in data:
             print(f"  ❌ Error: {data['error']}")
         else:
-            for row in data[:3]:  # Show first 3 records
-                print(f"  {row}")
+            print("  📊 Summary:")
+            for k, v in data["summary"].items():
+                print(f"    {k}: {v}")
+            print("  📅 Sample Price Data:")
+            for row in data["price_data"]: 
+                print(f" {row}")
+

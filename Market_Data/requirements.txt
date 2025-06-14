@@ -1,6 +1,0 @@
-yfinance
-pandas
-requests
-google-cloud-aiplatform
-PyMuPDF
-adk
