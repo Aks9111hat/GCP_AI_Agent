@@ -63,22 +63,26 @@ class MarketDataAgent():
                 info = ticker.info
 
                 print(info)
-
                 summary = {
-                    "Market Cap": info.get("marketCap"),
-                    "Beta": info.get("beta"),
-                    "Day High": info.get("dayHigh"),
-                    "Day Low": info.get("dayLow"),
+                    "Open": info.get("open") or info.get("regularMarketOpen"),
+                    "Previous Close": info.get("previousClose") or info.get("regularMarketPreviousClose"),
+                    "High": info.get("dayHigh") or info.get("regularMarketDayHigh"),
+                    "Low": info.get("dayLow") or info.get("regularMarketDayLow"),
                     "52W High": info.get("fiftyTwoWeekHigh"),
                     "52W Low": info.get("fiftyTwoWeekLow"),
-                    "Book Value": info.get("bookValue"),
+                    "Volume": info.get("volume") or info.get("regularMarketVolume"),
+                    "Book Value Per Share": info.get("bookValue"),
+                    "Dividend Rate": info.get("dividendRate"),
                     "Dividend Yield": info.get("dividendYield"),
-                    "P/E Ratio": info.get("trailingPE"),
+                    "Beta": info.get("beta"),
+                    "P/E Ratio (TTM)": info.get("trailingPE"),
+                    "Forward P/E": info.get("forwardPE"),
                     "EPS (TTM)": info.get("trailingEps"),
                     "P/B Ratio": info.get("priceToBook"),
-                    "Volume": info.get("volume"),
-                    "Avg Volume": info.get("averageVolume"),
                     "Sector": info.get("sector"),
+                    "Market Cap (USD)": info.get("marketCap"),
+                    "Enterprise Value": info.get("enterpriseValue"),
+                    "50D Avg": info.get("fiftyDayAverage"),
                 }
 
                 result[symbol] = {
