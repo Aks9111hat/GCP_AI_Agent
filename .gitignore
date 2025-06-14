@@ -1,10 +1,4 @@
 Ai_Agents/
-# news_scraper_agent.py
+.env
 
-# yfinance
-# pandas
-# requests
-# # google-cloud-aiplatform
-# # PyMuPDF
-# # adk
-# fitz
+keys.txt
