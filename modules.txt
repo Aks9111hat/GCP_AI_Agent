@@ -2,3 +2,4 @@ pip install nltk textblob
 pip install requests newspaper3k pandas
 pip install lxml_html_clean
 pip install python-dotenv
+

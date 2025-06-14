@@ -69,7 +69,7 @@ def main():
         print("Please make sure your .env file contains: NEWS_API_KEY=your_api_key_here")
         return
     
-    query = "GOOG"
+    query = ""
     print(f"🔍 Fetching news articles for: '{query}'")
     
     articles = get_news_articles(API_KEY, query)
