@@ -1,12 +1,11 @@
 # from adk.agent import BaseAgent
-import os
 import io
 import re
 import yfinance as yf
 import pandas as pd
 import requests
 import base64
-import fitz  # PyMuPDF
+# import fitz  # PyMuPDF
 # from google.cloud import aiplatform
 
 
@@ -47,7 +46,7 @@ class MarketDataAgent():
 
             r = requests.get(f"https://query1.finance.yahoo.com/v1/finance/search?q={name_or_symbol}", headers=headers)
             j = r.json()
-            if j["quotes"]:
+            if j.get("quotes"):
                 return j["quotes"][0]["symbol"]
         except:
             pass
@@ -59,7 +58,33 @@ class MarketDataAgent():
             try:
                 df = yf.download(symbol, period=period, interval=interval)
                 df.reset_index(inplace=True)
-                result[symbol] = df.to_dict(orient="records")
+
+                ticker = yf.Ticker(symbol)
+                info = ticker.info
+
+                print(info)
+
+                summary = {
+                    "Market Cap": info.get("marketCap"),
+                    "Beta": info.get("beta"),
+                    "Day High": info.get("dayHigh"),
+                    "Day Low": info.get("dayLow"),
+                    "52W High": info.get("fiftyTwoWeekHigh"),
+                    "52W Low": info.get("fiftyTwoWeekLow"),
+                    "Book Value": info.get("bookValue"),
+                    "Dividend Yield": info.get("dividendYield"),
+                    "P/E Ratio": info.get("trailingPE"),
+                    "EPS (TTM)": info.get("trailingEps"),
+                    "P/B Ratio": info.get("priceToBook"),
+                    "Volume": info.get("volume"),
+                    "Avg Volume": info.get("averageVolume"),
+                    "Sector": info.get("sector"),
+                }
+
+                result[symbol] = {
+                    "summary": summary,
+                    "price_data": df.to_dict(orient="records")
+                }
             except Exception as e:
                 result[symbol] = {"error": str(e)}
         return result
@@ -75,24 +100,24 @@ class MarketDataAgent():
             print("CSV read error:", e)
         return []
 
-    def extract_from_pdf(self, pdf_bytes: bytes) -> list:
-        try:
-            if len(pdf_bytes) > 2 * 1024 * 1024:  # 2 MB limit
-                print("PDF too large")
-                return []
+    # def extract_from_pdf(self, pdf_bytes: bytes) -> list:
+    #     try:
+    #         if len(pdf_bytes) > 2 * 1024 * 1024:  # 2 MB limit
+    #             print("PDF too large")
+    #             return []
 
-            symbols = set()
-            with fitz.open("pdf", pdf_bytes) as doc:
-                for page in doc:
-                    text = page.get_text()
-                    matches = re.findall(r'\b[A-Z]{1,5}\b', text)
-                    for token in matches:
-                        if self.resolve_to_symbol(token):
-                            symbols.add(token)
-            return list(symbols)
-        except Exception as e:
-            print("PDF parse error:", e)
-            return []
+    #         symbols = set()
+    #         with fitz.open("pdf", pdf_bytes) as doc:
+    #             for page in doc:
+    #                 text = page.get_text()
+    #                 matches = re.findall(r'\b[A-Z]{1,5}\b', text)
+    #                 for token in matches:
+    #                     if self.resolve_to_symbol(token):
+    #                         symbols.add(token)
+    #         return list(symbols)
+    #     except Exception as e:
+    #         print("PDF parse error:", e)
+    #         return []
 
     def run(self, inputs: dict) -> dict:
         period = inputs.get("period", "5d")
@@ -116,12 +141,7 @@ class MarketDataAgent():
             except Exception as e:
                 print("Base64 decode error:", e)
 
-        print(symbols)
         resolved_symbols = [self.resolve_to_symbol(sym) for sym in symbols]
-
-
         resolved_symbols = list(set(filter(None, resolved_symbols)))  # Remove None + duplicates
-
-        print(resolved_symbols)
 
         return self.fetch_data(resolved_symbols, period, interval)
