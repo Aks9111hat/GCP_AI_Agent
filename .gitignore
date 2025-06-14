@@ -1,2 +1,11 @@
 Ai_Agents/
-news_scraper_agent.py
+# news_scraper_agent.py
+
+
+# dependices installed : 
+# yfinance
+# pandas
+# requests
+# google-cloud-aiplatform
+# PyMuPDF
+# adk
