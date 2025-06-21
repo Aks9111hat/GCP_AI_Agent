@@ -7,7 +7,7 @@ from google.adk.agents import BaseAgent, ParallelAgent, SequentialAgent, LlmAgen
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events import Event
 from google.genai import types
-
+# test
 logger = logging.getLogger(__name__)
 
 class StockInsightsAgent(BaseAgent):
