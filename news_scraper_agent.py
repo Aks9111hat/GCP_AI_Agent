@@ -68,7 +68,8 @@ class NewsSummaryAgent(BaseAgent):
         return await asyncio.to_thread(_sync_summarize, url)
 
     async def run(self, inputs: dict) -> dict:
-        query = inputs.get("query", "Google")
+        query = "GAIL"
+        # inputs.get("query", "Google")
 
         if not API_KEY:
             return {

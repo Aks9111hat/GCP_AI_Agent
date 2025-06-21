@@ -12,7 +12,7 @@ stock_parser = LlmAgent(
 You are a stock symbol extractor. Extract all stock ticker symbols from the user's message.
 
 Rules:
-- Extract only valid stock symbols (3-5 capital letters like AAPL, MSFT, GOOGL, TSLA)
+- Extract only valid stock symbols
 - Return symbols as a simple comma-separated list
 - If only one symbol, return just that symbol
 - No brackets, no quotes, no explanations
@@ -27,6 +27,7 @@ Rules:
 # Examples:
 # Input: "What's AAPL doing today?"
 # Output: AAPL
+# (3-5 capital letters like AAPL, MSFT, GOOGL, TSLA)
 
 # Input: "Compare MSFT and GOOGL performance"
 # Output: MSFT,GOOGL

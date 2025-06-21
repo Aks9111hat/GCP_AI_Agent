@@ -128,7 +128,7 @@ class NewsScraperAgent(BaseAgent):
 
     async def _fetch_articles(self, stock: str):
         """Fetch news articles for a given stock symbol"""
-        url = f"https://newsapi.org/v2/everything?q={stock}&language=en&apiKey={self.api_key}&pageSize=5&sortBy=publishedAt"
+        url = f"https://newsapi.org/v2/everything?q={stock}%20Stock%20Market&language=en&apiKey={self.api_key}&pageSize=5&sortBy=publishedAt"
         
         try:
             async with aiohttp.ClientSession() as session:
