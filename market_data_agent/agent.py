@@ -1,17 +1,24 @@
-# from adk.agent import BaseAgent
 import io
 import re
+import base64
 import yfinance as yf
 import pandas as pd
 import requests
-import base64
-# import fitz  # PyMuPDF
-# from google.cloud import aiplatform
+from google.adk.agents import BaseAgent
 
 
+<<<<<<< HEAD:Market_Data/agent.py
 class MarketDataAgent():
     def __init__(self):
         return
+=======
+class MarketDataAgent(BaseAgent):
+    name: str = "Market_Data_Agent"
+    model_config = {"arbitrary_types_allowed": True}
+
+    def __init__(self, name="Market_Data_Agent"):
+        super().__init__(name=name)
+>>>>>>> 7ae3e77bff22195413c2b9c21459d6f309521832:market_data_agent/agent.py
 
     def resolve_to_symbol(self, name_or_symbol: str) -> str:
         if len(name_or_symbol) <= 5 and name_or_symbol.isupper():
@@ -26,7 +33,6 @@ class MarketDataAgent():
                 "Accept": "application/json",
                 "Connection": "keep-alive"
             }
-
             r = requests.get(f"https://query1.finance.yahoo.com/v1/finance/search?q={name_or_symbol}", headers=headers)
             j = r.json()
             if j.get("quotes"):
@@ -45,23 +51,26 @@ class MarketDataAgent():
                 ticker = yf.Ticker(symbol)
                 info = ticker.info
 
-                print(info)
-
                 summary = {
-                    "Market Cap": info.get("marketCap"),
-                    "Beta": info.get("beta"),
-                    "Day High": info.get("dayHigh"),
-                    "Day Low": info.get("dayLow"),
+                    "Open": info.get("open"),
+                    "Previous Close": info.get("previousClose"),
+                    "High": info.get("dayHigh"),
+                    "Low": info.get("dayLow"),
                     "52W High": info.get("fiftyTwoWeekHigh"),
                     "52W Low": info.get("fiftyTwoWeekLow"),
-                    "Book Value": info.get("bookValue"),
+                    "Volume": info.get("volume"),
+                    "Book Value Per Share": info.get("bookValue"),
+                    "Dividend Rate": info.get("dividendRate"),
                     "Dividend Yield": info.get("dividendYield"),
-                    "P/E Ratio": info.get("trailingPE"),
+                    "Beta": info.get("beta"),
+                    "P/E Ratio (TTM)": info.get("trailingPE"),
+                    "Forward P/E": info.get("forwardPE"),
                     "EPS (TTM)": info.get("trailingEps"),
                     "P/B Ratio": info.get("priceToBook"),
-                    "Volume": info.get("volume"),
-                    "Avg Volume": info.get("averageVolume"),
                     "Sector": info.get("sector"),
+                    "Market Cap (USD)": info.get("marketCap"),
+                    "Enterprise Value": info.get("enterpriseValue"),
+                    "50D Avg": info.get("fiftyDayAverage"),
                 }
 
                 result[symbol] = {
@@ -83,27 +92,24 @@ class MarketDataAgent():
             print("CSV read error:", e)
         return []
 
+<<<<<<< HEAD:Market_Data/agent.py
 
     def run(self, inputs: dict) -> dict:
+=======
+    async def run(self, inputs: dict) -> dict:
+>>>>>>> 7ae3e77bff22195413c2b9c21459d6f309521832:market_data_agent/agent.py
         period = inputs.get("period", "5d")
         interval = inputs.get("interval", "1d")
-
         symbols = inputs.get("symbols", [])
-        nlp_query = inputs.get("nlp_query")
         csv_content = inputs.get("csv_content")
         pdf_base64 = inputs.get("pdf_content")
 
         if csv_content:
             symbols += self.extract_from_csv(csv_content)
 
-        if pdf_base64:
-            try:
-                pdf_bytes = base64.b64decode(pdf_base64)
-                symbols += self.extract_from_pdf(pdf_bytes)
-            except Exception as e:
-                print("Base64 decode error:", e)
+        # You can handle PDF similarly if needed
 
         resolved_symbols = [self.resolve_to_symbol(sym) for sym in symbols]
-        resolved_symbols = list(set(filter(None, resolved_symbols)))  # Remove None + duplicates
+        resolved_symbols = list(set(filter(None, resolved_symbols)))
 
         return self.fetch_data(resolved_symbols, period, interval)
