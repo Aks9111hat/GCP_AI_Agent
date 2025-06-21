@@ -12,23 +12,6 @@ import base64
 class MarketDataAgent():
     def __init__(self):
         return
-        # self.project = os.getenv("PROJECT_ID")
-        # self.location = os.getenv("LOCATION", "us-central1")
-        # aiplatform.init(project=self.project, location=self.location)
-        # self.model = aiplatform.TextGenerationModel.from_pretrained("text-bison")
-
-    def resolve_symbols_via_vertex(self, query: str) -> list:
-        prompt = f"""
-        Extract and return a Python list of stock ticker symbols (e.g., ["AAPL", "TSLA", "GOOG"])
-        based on this query about the stock market:
-
-        Query: "{query}"
-        """
-        try:
-            response = self.model.predict(prompt=prompt, temperature=0.3, max_output_tokens=256)
-            return eval(response.text.strip())
-        except:
-            return []
 
     def resolve_to_symbol(self, name_or_symbol: str) -> str:
         if len(name_or_symbol) <= 5 and name_or_symbol.isupper():
@@ -100,24 +83,6 @@ class MarketDataAgent():
             print("CSV read error:", e)
         return []
 
-    # def extract_from_pdf(self, pdf_bytes: bytes) -> list:
-    #     try:
-    #         if len(pdf_bytes) > 2 * 1024 * 1024:  # 2 MB limit
-    #             print("PDF too large")
-    #             return []
-
-    #         symbols = set()
-    #         with fitz.open("pdf", pdf_bytes) as doc:
-    #             for page in doc:
-    #                 text = page.get_text()
-    #                 matches = re.findall(r'\b[A-Z]{1,5}\b', text)
-    #                 for token in matches:
-    #                     if self.resolve_to_symbol(token):
-    #                         symbols.add(token)
-    #         return list(symbols)
-    #     except Exception as e:
-    #         print("PDF parse error:", e)
-    #         return []
 
     def run(self, inputs: dict) -> dict:
         period = inputs.get("period", "5d")
@@ -127,9 +92,6 @@ class MarketDataAgent():
         nlp_query = inputs.get("nlp_query")
         csv_content = inputs.get("csv_content")
         pdf_base64 = inputs.get("pdf_content")
-
-        # if nlp_query:
-        #     symbols += self.resolve_symbols_via_vertex(nlp_query)
 
         if csv_content:
             symbols += self.extract_from_csv(csv_content)
