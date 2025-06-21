@@ -1,34 +1,18 @@
-# from adk.agent import BaseAgent
 import io
 import re
+import base64
 import yfinance as yf
 import pandas as pd
 import requests
-import base64
-# import fitz  # PyMuPDF
-# from google.cloud import aiplatform
+from google.adk.agents import BaseAgent
 
 
-class MarketDataAgent():
-    def __init__(self):
-        return
-        # self.project = os.getenv("PROJECT_ID")
-        # self.location = os.getenv("LOCATION", "us-central1")
-        # aiplatform.init(project=self.project, location=self.location)
-        # self.model = aiplatform.TextGenerationModel.from_pretrained("text-bison")
+class MarketDataAgent(BaseAgent):
+    name: str = "Market_Data_Agent"
+    model_config = {"arbitrary_types_allowed": True}
 
-    def resolve_symbols_via_vertex(self, query: str) -> list:
-        prompt = f"""
-        Extract and return a Python list of stock ticker symbols (e.g., ["AAPL", "TSLA", "GOOG"])
-        based on this query about the stock market:
-
-        Query: "{query}"
-        """
-        try:
-            response = self.model.predict(prompt=prompt, temperature=0.3, max_output_tokens=256)
-            return eval(response.text.strip())
-        except:
-            return []
+    def __init__(self, name="Market_Data_Agent"):
+        super().__init__(name=name)
 
     def resolve_to_symbol(self, name_or_symbol: str) -> str:
         if len(name_or_symbol) <= 5 and name_or_symbol.isupper():
@@ -43,7 +27,6 @@ class MarketDataAgent():
                 "Accept": "application/json",
                 "Connection": "keep-alive"
             }
-
             r = requests.get(f"https://query1.finance.yahoo.com/v1/finance/search?q={name_or_symbol}", headers=headers)
             j = r.json()
             if j.get("quotes"):
@@ -62,15 +45,14 @@ class MarketDataAgent():
                 ticker = yf.Ticker(symbol)
                 info = ticker.info
 
-                print(info)
                 summary = {
-                    "Open": info.get("open") or info.get("regularMarketOpen"),
-                    "Previous Close": info.get("previousClose") or info.get("regularMarketPreviousClose"),
-                    "High": info.get("dayHigh") or info.get("regularMarketDayHigh"),
-                    "Low": info.get("dayLow") or info.get("regularMarketDayLow"),
+                    "Open": info.get("open"),
+                    "Previous Close": info.get("previousClose"),
+                    "High": info.get("dayHigh"),
+                    "Low": info.get("dayLow"),
                     "52W High": info.get("fiftyTwoWeekHigh"),
                     "52W Low": info.get("fiftyTwoWeekLow"),
-                    "Volume": info.get("volume") or info.get("regularMarketVolume"),
+                    "Volume": info.get("volume"),
                     "Book Value Per Share": info.get("bookValue"),
                     "Dividend Rate": info.get("dividendRate"),
                     "Dividend Yield": info.get("dividendYield"),
@@ -104,48 +86,19 @@ class MarketDataAgent():
             print("CSV read error:", e)
         return []
 
-    # def extract_from_pdf(self, pdf_bytes: bytes) -> list:
-    #     try:
-    #         if len(pdf_bytes) > 2 * 1024 * 1024:  # 2 MB limit
-    #             print("PDF too large")
-    #             return []
-
-    #         symbols = set()
-    #         with fitz.open("pdf", pdf_bytes) as doc:
-    #             for page in doc:
-    #                 text = page.get_text()
-    #                 matches = re.findall(r'\b[A-Z]{1,5}\b', text)
-    #                 for token in matches:
-    #                     if self.resolve_to_symbol(token):
-    #                         symbols.add(token)
-    #         return list(symbols)
-    #     except Exception as e:
-    #         print("PDF parse error:", e)
-    #         return []
-
-    def run(self, inputs: dict) -> dict:
+    async def run(self, inputs: dict) -> dict:
         period = inputs.get("period", "5d")
         interval = inputs.get("interval", "1d")
-
         symbols = inputs.get("symbols", [])
-        nlp_query = inputs.get("nlp_query")
         csv_content = inputs.get("csv_content")
         pdf_base64 = inputs.get("pdf_content")
-
-        # if nlp_query:
-        #     symbols += self.resolve_symbols_via_vertex(nlp_query)
 
         if csv_content:
             symbols += self.extract_from_csv(csv_content)
 
-        if pdf_base64:
-            try:
-                pdf_bytes = base64.b64decode(pdf_base64)
-                symbols += self.extract_from_pdf(pdf_bytes)
-            except Exception as e:
-                print("Base64 decode error:", e)
+        # You can handle PDF similarly if needed
 
         resolved_symbols = [self.resolve_to_symbol(sym) for sym in symbols]
-        resolved_symbols = list(set(filter(None, resolved_symbols)))  # Remove None + duplicates
+        resolved_symbols = list(set(filter(None, resolved_symbols)))
 
         return self.fetch_data(resolved_symbols, period, interval)
