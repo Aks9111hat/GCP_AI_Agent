@@ -12,8 +12,9 @@ from google.adk.agents import BaseAgent
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events import Event
 from google.genai.types import Content, Part
-# test
+
 logger = logging.getLogger(__name__)
+
 
 class MarketDataAgent(BaseAgent):
     name: str = "Market_Data_Agent"
@@ -22,126 +23,156 @@ class MarketDataAgent(BaseAgent):
     def __init__(self, name="Market_Data_Agent"):
         super().__init__(name=name)
 
-    def resolve_to_symbol(self, name_or_symbol: str) -> str:
-        if len(name_or_symbol) <= 5 and name_or_symbol.isupper():
-            return name_or_symbol
-        try:
-            headers = {
-                "User-Agent": (
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/113.0.0.0 Safari/537.36"
-                ),
-                "Accept": "application/json",
-                "Connection": "keep-alive"
-            }
-            r = requests.get(f"https://query1.finance.yahoo.com/v1/finance/search?q={name_or_symbol}", headers=headers)
-            j = r.json()
-            if j.get("quotes"):
-                return j["quotes"][0]["symbol"]
-        except:
-            pass
-        return None
-
-    def fetch_data(self, symbols, period="5d", interval="1d"):
-
-        print("2nd",symbols,"😁")
+    async def fetch_data_sync(self, stock, period="5d", interval="1d"):
+        """Fetch market data synchronously using yfinance."""
+        logger.info(f"[{self.name}] Fetching market data for {stock}")
         result = {}
-        for symbol in symbols:
-            print(symbol,"😁")
-            try:
-                df = yf.download(symbol, period=period, interval=interval)
-                df.reset_index(inplace=True)
 
-                print(f"Fetching data for {symbol}...")
-                ticker = yf.Ticker(symbol)
-                info = ticker.info
+        try:
+            ticker = yf.Ticker(stock)
+            df = yf.download(stock, period=period, interval=interval, progress=False)
+            # 🧹 Flatten column headers if they are multi-level
+            df.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in df.columns]
+            df.reset_index(inplace=True)
 
-                summary = {
-                    "Open": info.get("open"),
-                    "Previous Close": info.get("previousClose"),
-                    "High": info.get("dayHigh"),
-                    "Low": info.get("dayLow"),
-                    "52W High": info.get("fiftyTwoWeekHigh"),
-                    "52W Low": info.get("fiftyTwoWeekLow"),
-                    "Volume": info.get("volume"),
-                    "Book Value Per Share": info.get("bookValue"),
-                    "Dividend Rate": info.get("dividendRate"),
-                    "Dividend Yield": info.get("dividendYield"),
-                    "Beta": info.get("beta"),
-                    "P/E Ratio (TTM)": info.get("trailingPE"),
-                    "Forward P/E": info.get("forwardPE"),
-                    "EPS (TTM)": info.get("trailingEps"),
-                    "P/B Ratio": info.get("priceToBook"),
-                    "Sector": info.get("sector"),
-                    "Market Cap (USD)": info.get("marketCap"),
-                    "Enterprise Value": info.get("enterpriseValue"),
-                    "50D Avg": info.get("fiftyDayAverage"),
-                }
+            # 🔁 Convert Timestamp to string
+            if "Date" in df.columns:
+                df["Date"] = df["Date"].astype(str)
 
-                result[symbol] = {
-                    "summary": summary,
-                    "price_data": df.to_dict(orient="records")
-                }
-            except Exception as e:
-                result[symbol] = {"error": str(e)}
+            price_data_dict = df.to_dict(orient="records")
+            info = ticker.info
+
+            summary = {
+                "Open": info.get("open"),
+                "Previous Close": info.get("previousClose"),
+                "High": info.get("dayHigh"),
+                "Low": info.get("dayLow"),
+                "52W High": info.get("fiftyTwoWeekHigh"),
+                "52W Low": info.get("fiftyTwoWeekLow"),
+                "Volume": info.get("volume"),
+                "Book Value Per Share": info.get("bookValue"),
+                "Dividend Rate": info.get("dividendRate"),
+                "Dividend Yield": info.get("dividendYield"),
+                "Beta": info.get("beta"),
+                "P/E Ratio (TTM)": info.get("trailingPE"),
+                "Forward P/E": info.get("forwardPE"),
+                "EPS (TTM)": info.get("trailingEps"),
+                "P/B Ratio": info.get("priceToBook"),
+                "Sector": info.get("sector"),
+                "Market Cap (USD)": info.get("marketCap"),
+                "Enterprise Value": info.get("enterpriseValue"),
+                "50D Avg": info.get("fiftyDayAverage"),
+            }
+
+            result[stock] = {
+                "summary": summary,
+                "price_data": price_data_dict
+            }
+
+            logger.info(f"[{self.name}] Successfully fetched data for {stock}")
+
+        except Exception as e:
+            logger.error(f"[{self.name}] Error fetching data for {stock}: {str(e)}")
+            result[stock] = {"error": str(e)}
+
         return result
     
+    def format_market_summary(self, summary: Dict[str, Any]) -> str:
+        def fmt(val):
+            if isinstance(val, (int, float)):
+                return f"{val:,.2f}" if val >= 1000 else f"{val}"
+            
+            return val or "N/A"
+        
+        lines = [
+            f"• Sector: {summary.get('Sector', 'N/A')}",
+            f"• Open: ${fmt(summary.get('Open'))}",
+            f"• Previous Close: ${fmt(summary.get('Previous Close'))}",
+            f"• High: ${fmt(summary.get('High'))}",
+            f"• Low: ${fmt(summary.get('Low'))}",
+            f"• Volume: {fmt(summary.get('Volume'))}",
+            f"• Market Cap: ${fmt(summary.get('Market Cap (USD)'))}",
+            f"• EPS (TTM): {fmt(summary.get('EPS (TTM)'))}",
+            f"• P/E Ratio: {fmt(summary.get('P/E Ratio (TTM)'))}",
+            f"• Dividend Yield: {fmt(summary.get('Dividend Yield'))}",
+            f"• Beta: {fmt(summary.get('Beta'))}"
+        ]
+        return "\n".join(lines)
+    
+    def format_price_data(self, records: List[Dict[str, Any]]) -> str:
+        lines = []
+        for row in records:
+            lines.append(
+                f"📅 {row.get('Date')}:\n"
+                f"• Open: ${row.get('Open_MSFT', 'N/A'):.2f} | High: ${row.get('High_MSFT', 'N/A'):.2f} | "
+                f"Low: ${row.get('Low_MSFT', 'N/A'):.2f} | Close: ${row.get('Close_MSFT', 'N/A'):.2f} | "
+                f"Volume: {int(row.get('Volume_MSFT', 0)):,}"
+            )
+        return "\n\n".join(lines)
+
+
     @override
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
-        # stocks = ctx.session.state.get("stocks", [])
-        raw_stocks = ctx.session.state.get("stocks", [])
-        if not raw_stocks:
+        try:
+            raw_stocks = ctx.session.state.get("stocks", [])
+            logger.info(f"[{self.name}] Raw stocks from session: {raw_stocks}")
+
+            if not raw_stocks:
+                yield Event(
+                    author=self.name,
+                    content=Content(parts=[Part(text="No stocks provided for market data analysis.")])
+                )
+                return
+
+            if isinstance(raw_stocks, str):
+                try:
+                    raw_stocks = ast.literal_eval(raw_stocks)
+                except:
+                    raw_stocks = [raw_stocks]
+
+            full_market_data = {}
+
+            for stock in raw_stocks:
+                stock_data = await self.fetch_data_sync(stock)
+                full_market_data.update(stock_data)
+
+            ctx.session.state["market_data"] = full_market_data
+            logger.info(f"[{self.name}] Market data stored for {len(full_market_data)} stocks")
+
+            summaries = []
+            for symbol, data in full_market_data.items():
+                if "error" in data:
+                    summaries.append(f"❌ {symbol}: {data['error']}")
+                else:
+                    summary_text = self.format_market_summary(data["summary"])
+                    price_text = self.format_price_data(data["price_data"])
+                    summaries.append(
+                        f"✅ {symbol} Market Summary:\n{summary_text}\n\n"
+                        f"📊 Recent Price Data:\n{price_text}"
+                    )
+                    # price_data_str = (
+                    #     json.dumps(price_data_sample[:2], indent=2)
+                    #     if len(price_data_sample) > 2
+                    #     else json.dumps(price_data_sample, indent=2)
+                    # )
+
+                    # summaries.append(
+                    #     f"✅ {symbol} Market Summary:\n"
+                    #     f"```\n{summary_json}\n```\n"
+                    #     f"📊 Recent Price Data:\n"
+                    #     f"```\n{price_data_sample}\n```"
+                    # )
+
+            response_text = "\n\n".join(summaries)
+
             yield Event(
-                author="agent",
-                content=Content(parts=[Part(text="No stocks provided.")])
+                author=self.name,
+                content=Content(parts=[Part(text=response_text)])
             )
-            return
-        print("Raw stocks:", raw_stocks)
-        stocks = []
-        if isinstance(raw_stocks, list) and len(raw_stocks) == 1 and isinstance(raw_stocks[0], str):
-            try:
-                # Handle strings like "['MSFT']\n"
-                cleaned = raw_stocks[0].strip()
-                stocks = ast.literal_eval(cleaned)
-                print("Parsed stocks from stringified list:", stocks)
-            except Exception as e:
-                print("Failed to parse stocks:", e)
-                stocks = [raw_stocks[0].strip()]
-            else:
-                stocks = raw_stocks
 
-        print("Final resolved stock list:", stocks)
-            
-        # resolved_symbols = [self.resolve_to_symbol(sym) for sym in stocks]
-        # resolved_symbols = list(set(filter(None, stocks)))
-
-        # print(f"Resolved symbols: {resolved_symbols}")
-        print("1st ",stocks)
-        market_data = self.fetch_data(stocks)
-        ctx.session.state["market_data"] = market_data
-
-        # print(market_data)
-
-        summaries = []
-        for symbol, data in market_data.items():
-            if "error" in data:
-                summaries.append(f"❌ {symbol}: {data['error']}")
-            else:
-                summary_json = json.dumps(data["summary"], indent=2)
-                price_data_sample = data.get("price_data", [])
-                price_data_str = (
-                    json.dumps(price_data_sample[:3], indent=2) + "\n...(truncated)..."
-                    if len(price_data_sample) > 3
-                    else json.dumps(price_data_sample, indent=2)
-                )
-                summaries.append(
-                    f"✅ {symbol} Summary:\n{summary_json}\n\n"
-                    f"📊 Price Data :\n{price_data_str}"
-                )
-
-                
-        yield Event(
-            author="agent",
-            content=Content(parts=[Part(text="\n".join(summaries))])
-        )
+        except Exception as e:
+            logger.error(f"[{self.name}] Error in market data agent: {str(e)}")
+            yield Event(
+                author=self.name,
+                content=Content(parts=[Part(text=f"Error processing market data: {str(e)}")])
+            )

@@ -57,10 +57,11 @@ class StockInsightsAgent(BaseAgent):
             return
 
         logger.info(f"[{self.name}] Stocks extracted: {stocks}")
+
+        print(f"[{self.name}] Stocks extracted: {stocks}")
         
         # Store parsed stocks as proper list in session state for other agents to use
         ctx.session.state["stocks"] = stocks
-
         # Step 2: Run news and market agents in parallel
         logger.info(f"[{self.name}] Step 2: Fetching news and market data in parallel")
         

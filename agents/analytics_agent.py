@@ -16,11 +16,14 @@ class AnalyticsAgent(BaseAgent):
         market = ctx.session.state.get("market_data", [])
         insights = []
 
-        for i, stock_data in enumerate(market):
-            insights.append({
-                "stock": stock_data["stock"],
-                "recommendation": "Buy" if stock_data["change"] > 0 else "Hold"
-            })
+        print("Analytics Agent", market)
+
+        print("\n News Analysis:", news)
+        # for i, stock_data in enumerate(market):
+        #     insights.append({
+        #         "stock": stock_data["stock"],
+        #         "recommendation": "Buy" if stock_data["change"] > 0 else "Hold"
+        #     })
 
         ctx.session.state["stock_insights"] = insights
         yield Event(

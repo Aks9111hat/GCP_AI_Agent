@@ -18,19 +18,21 @@ Rules:
 - No brackets, no quotes, no explanations
 - If no symbols found, return "NONE"
 
-Examples:
-Input: "What's AAPL doing today?"
-Output: AAPL
-
-Input: "Compare MSFT and GOOGL performance"
-Output: MSFT,GOOGL
-
-Input: "I want to analyze TSLA, AAPL, and NVDA"
-Output: TSLA,AAPL,NVDA
-
-Input: "How is the market today?"
-Output: NONE
 """,
     input_schema=None,
     output_key="stocks",
 )
+
+
+# Examples:
+# Input: "What's AAPL doing today?"
+# Output: AAPL
+
+# Input: "Compare MSFT and GOOGL performance"
+# Output: MSFT,GOOGL
+
+# Input: "I want to analyze TSLA, AAPL, and NVDA"
+# Output: TSLA,AAPL,NVDA
+
+# Input: "How is the market today?"
+# Output: NONE
