@@ -13,6 +13,8 @@ from google.adk.events import Event
 load_dotenv()
 logger = logging.getLogger(__name__)
 
+# test1
+
 class NewsScraperAgent(BaseAgent):
     api_key: str = Field(default_factory=lambda: os.getenv("NEWS_API_KEY", ""))
 
