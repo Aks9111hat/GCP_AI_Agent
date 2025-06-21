@@ -15,7 +15,7 @@ class StockInsightsAgent(BaseAgent):
     news_agent: BaseAgent
     market_agent: BaseAgent
     analytics_agent: BaseAgent
-    
+
     parallel: ParallelAgent
     sequential: SequentialAgent
 
@@ -31,6 +31,7 @@ class StockInsightsAgent(BaseAgent):
         sequential = SequentialAgent(
             name="FullFlow",
             sub_agents=[parallel, analytics_agent],
+
         )
 
         # Pass everything as kwargs to super().__init__, no manual assignments!
