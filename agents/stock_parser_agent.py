@@ -20,7 +20,7 @@ Rules:
 
 """,
     input_schema=None,
-    output_key="stocks",
+    output_key="stocks, something",
 )
 
 
