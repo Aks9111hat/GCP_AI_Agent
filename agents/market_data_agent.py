@@ -1,6 +1,5 @@
 import ast
 import asyncio
-import json
 import logging
 import requests
 import yfinance as yf
@@ -14,7 +13,6 @@ from google.adk.events import Event
 from google.genai.types import Content, Part
 
 logger = logging.getLogger(__name__)
-# test1
 
 class MarketDataAgent(BaseAgent):
     name: str = "Market_Data_Agent"
@@ -24,18 +22,14 @@ class MarketDataAgent(BaseAgent):
         super().__init__(name=name)
 
     async def fetch_data_sync(self, stock, period="5d", interval="1d"):
-        """Fetch market data synchronously using yfinance."""
-        logger.info(f"[{self.name}] Fetching market data for {stock}")
+        logger.info(f"[{self.name}] Fetching market data for symbols: {stock}")
         result = {}
-
         try:
+            logger.info(f"[{self.name}] Processing symbol: {stock}")
             ticker = yf.Ticker(stock)
             df = yf.download(stock, period=period, interval=interval, progress=False)
-            # 🧹 Flatten column headers if they are multi-level
             df.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in df.columns]
             df.reset_index(inplace=True)
-
-            # 🔁 Convert Timestamp to string
             if "Date" in df.columns:
                 df["Date"] = df["Date"].astype(str)
 
@@ -63,39 +57,44 @@ class MarketDataAgent(BaseAgent):
                 "Enterprise Value": info.get("enterpriseValue"),
                 "50D Avg": info.get("fiftyDayAverage"),
             }
+            # for row in records:
+            #     flat_records.append({
+            #         "Date": row.get("Date"),
+            #         f"Open_{stock}": row.get("Open"),
+            #         f"High_{stock}": row.get("High"),
+            #         f"Low_{stock}": row.get("Low"),
+            #         f"Close_{stock}": row.get("Close"),
+            #         f"Volume_{stock}": row.get("Volume"),
+            #     })
 
             result[stock] = {
                 "summary": summary,
                 "price_data": price_data_dict
             }
-
             logger.info(f"[{self.name}] Successfully fetched data for {stock}")
-
         except Exception as e:
             logger.error(f"[{self.name}] Error fetching data for {stock}: {str(e)}")
             result[stock] = {"error": str(e)}
-
         return result
-    
+
     def format_market_summary(self, summary: Dict[str, Any]) -> str:
         def fmt(val):
             if isinstance(val, (int, float)):
                 return f"{val:,.2f}" if val >= 1000 else f"{val}"
-            
             return val or "N/A"
-        
+
         lines = [
-            f"• Sector: {summary.get('Sector', 'N/A')}",
-            f"• Open: ${fmt(summary.get('Open'))}",
-            f"• Previous Close: ${fmt(summary.get('Previous Close'))}",
-            f"• High: ${fmt(summary.get('High'))}",
-            f"• Low: ${fmt(summary.get('Low'))}",
-            f"• Volume: {fmt(summary.get('Volume'))}",
-            f"• Market Cap: ${fmt(summary.get('Market Cap (USD)'))}",
-            f"• EPS (TTM): {fmt(summary.get('EPS (TTM)'))}",
-            f"• P/E Ratio: {fmt(summary.get('P/E Ratio (TTM)'))}",
-            f"• Dividend Yield: {fmt(summary.get('Dividend Yield'))}",
-            f"• Beta: {fmt(summary.get('Beta'))}"
+            f"\n Sector: {summary.get('Sector', 'N/A')}",
+            f"\n Open: ${fmt(summary.get('Open'))}",
+            f"\n Previous Close: ${fmt(summary.get('Previous Close'))}",
+            f"\n High: ${fmt(summary.get('High'))}",
+            f"\n Low: ${fmt(summary.get('Low'))}",
+            f"\n Volume: {fmt(summary.get('Volume'))}",
+            f"\n Market Cap: ${fmt(summary.get('Market Cap (USD)'))}",
+            f"\n EPS (TTM): {fmt(summary.get('EPS (TTM)'))}",
+            f"\n P/E Ratio: {fmt(summary.get('P/E Ratio (TTM)'))}",
+            f"\n Dividend Yield: {fmt(summary.get('Dividend Yield'))}",
+            f"\n Beta: {fmt(summary.get('Beta'))}"
         ]
         return "\n".join(lines)
     
@@ -104,8 +103,8 @@ class MarketDataAgent(BaseAgent):
         for row in records:
             lines.append(
                 f"📅 {row.get('Date')}:\n"
-                f"• Open: ${row.get('Open_MSFT', 'N/A'):.2f} | High: ${row.get('High_MSFT', 'N/A'):.2f} | "
-                f"Low: ${row.get('Low_MSFT', 'N/A'):.2f} | Close: ${row.get('Close_MSFT', 'N/A'):.2f} | "
+                f"• Open: ${row.get('Open_MSFT', 'N/A')} | High: ${row.get('High_MSFT', 'N/A')} | "
+                f"Low: ${row.get('Low_MSFT', 'N/A')} | Close: ${row.get('Close_MSFT', 'N/A')} | "
                 f"Volume: {int(row.get('Volume_MSFT', 0)):,}"
             )
         return "\n\n".join(lines)
@@ -118,10 +117,7 @@ class MarketDataAgent(BaseAgent):
             logger.info(f"[{self.name}] Raw stocks from session: {raw_stocks}")
 
             if not raw_stocks:
-                yield Event(
-                    author=self.name,
-                    content=Content(parts=[Part(text="No stocks provided for market data analysis.")])
-                )
+                yield Event(author=self.name, content=Content(parts=[Part(text="No stocks provided.")]))
                 return
 
             if isinstance(raw_stocks, str):
@@ -130,49 +126,32 @@ class MarketDataAgent(BaseAgent):
                 except:
                     raw_stocks = [raw_stocks]
 
-            full_market_data = {}
-
+            full_market_data = []
             for stock in raw_stocks:
+                logger.info(f"[{self.name}] Fetching market data for {stock}")
                 stock_data = await self.fetch_data_sync(stock)
-                full_market_data.update(stock_data)
+                full_market_data.append(stock_data)
 
             ctx.session.state["market_data"] = full_market_data
-            logger.info(f"[{self.name}] Market data stored for {len(full_market_data)} stocks")
+            logger.info(f"[{self.name}] Stored market data in session.")
 
             summaries = []
-            for symbol, data in full_market_data.items():
-                if "error" in data:
-                    summaries.append(f"❌ {symbol}: {data['error']}")
-                else:
-                    summary_text = self.format_market_summary(data["summary"])
-                    price_text = self.format_price_data(data["price_data"])
-                    summaries.append(
-                        f"✅ {symbol} Market Summary:\n{summary_text}\n\n"
-                        f"📊 Recent Price Data:\n{price_text}"
-                    )
-                    # price_data_str = (
-                    #     json.dumps(price_data_sample[:2], indent=2)
-                    #     if len(price_data_sample) > 2
-                    #     else json.dumps(price_data_sample, indent=2)
-                    # )
+            for stock_dict in full_market_data:  # each stock_dict is like {'MSFT': {...}}
+                for symbol, data in stock_dict.items():
+                    if "error" in data:
+                        summaries.append(f"\n {symbol}: {data['error']}")
+                    else:
+                        summary_text = self.format_market_summary(data["summary"])
+                        price_text = self.format_price_data(data["price_data"])
+                        summaries.append(
+                            f"\n {symbol} Market Summary:\n{summary_text}\n\n"
+                            f"\n\n Recent Price Data:\n{price_text}"
+                        )
 
-                    # summaries.append(
-                    #     f"✅ {symbol} Market Summary:\n"
-                    #     f"```\n{summary_json}\n```\n"
-                    #     f"📊 Recent Price Data:\n"
-                    #     f"```\n{price_data_sample}\n```"
-                    # )
 
             response_text = "\n\n".join(summaries)
-
-            yield Event(
-                author=self.name,
-                content=Content(parts=[Part(text=response_text)])
-            )
+            yield Event(author=self.name, content=Content(parts=[Part(text=response_text)]))
 
         except Exception as e:
             logger.error(f"[{self.name}] Error in market data agent: {str(e)}")
-            yield Event(
-                author=self.name,
-                content=Content(parts=[Part(text=f"Error processing market data: {str(e)}")])
-            )
+            yield Event(author=self.name, content=Content(parts=[Part(text=f"Error processing market data: {str(e)}")]))
