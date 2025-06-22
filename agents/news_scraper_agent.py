@@ -35,7 +35,9 @@ class NewsScraperAgent(BaseAgent):
 
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
         try:
-            raw_stocks = ctx.session.state.get("stocks", [])
+            # parsed = ctx.session.state.get("StockSymbolExtractor", {})
+            # raw_stocks = parsed.get("search_queries", [])
+            raw_stocks = ctx.session.state["search_queries"]
             logger.info(f"[{self.name}] Raw stocks from session: {raw_stocks}")
 
             if not raw_stocks:
