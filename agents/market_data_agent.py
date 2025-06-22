@@ -41,6 +41,7 @@ class MarketDataAgent(BaseAgent):
 
             price_data_dict = df.to_dict(orient="records")
             info = ticker.info
+            
 
             summary = {
                 "Open": info.get("open"),
