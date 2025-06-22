@@ -12,10 +12,10 @@ load_dotenv()
 API_KEY = os.getenv("NEWS_API_KEY")
 
 # Ensure required NLTK data is available
-try:
-    nltk.download('punkt')
-except Exception as e:
-    logging.warning(f"Failed to download nltk 'punkt': {e}")
+# try:
+#     nltk.download('punkt')
+# except Exception as e:
+#     logging.warning(f"Failed to download nltk 'punkt': {e}")
 
 class NewsSummaryAgent(BaseAgent):
     def __init__(self):
@@ -40,6 +40,10 @@ class NewsSummaryAgent(BaseAgent):
         """Download and summarize article asynchronously"""
         def _sync_summarize(url):
             try:
+                try:
+                    nltk.download('punkt')
+                except Exception as e:
+                    logging.warning(f"Failed to download nltk 'punkt': {e}")
                 article = Article(url)
                 article.download()
                 article.parse()
@@ -68,7 +72,7 @@ class NewsSummaryAgent(BaseAgent):
         return await asyncio.to_thread(_sync_summarize, url)
 
     async def run(self, inputs: dict) -> dict:
-        query = inputs.get("query", "Google")
+        query = inputs.get("query", "GAIL India Limited")
 
         if not API_KEY:
             return {

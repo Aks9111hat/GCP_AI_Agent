@@ -5,3 +5,4 @@ keys.txt
 
 *.png
 *.pdf
+agents/__pycache__/

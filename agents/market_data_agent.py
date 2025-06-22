@@ -28,7 +28,7 @@ class MarketDataAgent(BaseAgent):
             logger.info(f"[{self.name}] Processing symbol: {stock}")
             ticker = yf.Ticker(stock)
 
-            print("123",ticker)
+            # print("123",ticker)
 
             df = yf.download(stock, period=period, interval=interval, progress=False)
 
@@ -119,7 +119,8 @@ class MarketDataAgent(BaseAgent):
     @override
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
         try:
-            raw_stocks = ctx.session.state.get("stocks", [])
+            raw_stocks = ctx.session.state["stocks"]
+            # raw_stocks = ctx.session.state.get("stocks", [])
             logger.info(f"[{self.name}] Raw stocks from session: {raw_stocks}")
 
             if not raw_stocks:
