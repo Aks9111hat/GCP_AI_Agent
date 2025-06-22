@@ -2,6 +2,7 @@ import logging
 from typing import AsyncGenerator
 from typing_extensions import override
 from pydantic import Field
+import requests
 
 from google.adk.agents import BaseAgent, ParallelAgent, SequentialAgent, LlmAgent
 from google.adk.agents.invocation_context import InvocationContext
@@ -29,6 +30,27 @@ class StockInsightsAgent(BaseAgent):
             analytics_agent=analytics_agent,
         )
 
+    def resolve_to_symbol(self, name_or_symbol: str) -> str:
+        # if len(name_or_symbol) <= 5 and name_or_symbol.isupper():
+        #     return name_or_symbol
+        try:
+            headers = {
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/113.0.0.0 Safari/537.36"
+                ),
+                "Accept": "application/json",
+                "Connection": "keep-alive"
+            }
+            r = requests.get(f"https://query1.finance.yahoo.com/v1/finance/search?q={name_or_symbol}", headers=headers)
+            j = r.json()
+            if j.get("quotes"):
+                return j["quotes"][0]["symbol"]
+        except:
+            pass
+        return None
+
     @override
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
         logger.info(f"[{self.name}] Starting stock analysis flow")
@@ -49,6 +71,10 @@ class StockInsightsAgent(BaseAgent):
                 # Split by comma and clean up each symbol
                 stocks = [symbol.strip().upper() for symbol in stocks_str.split(",") if symbol.strip()]
         
+        stocks = [self.resolve_to_symbol(sym) for sym in stocks]
+
+        stocks = list(set(filter(None, stocks)))
+
         if not stocks:
             logger.warning(f"[{self.name}] No stocks extracted from input.")
             yield Event(
@@ -69,7 +95,10 @@ class StockInsightsAgent(BaseAgent):
         # Create parallel agent with the stocks already in context
         parallel = ParallelAgent(
             name="FetchDataInParallel",
-            sub_agents=[self.news_agent, self.market_agent],
+            sub_agents=[
+                self.news_agent.model_copy(deep=True),
+                self.market_agent.model_copy(deep=True)
+            ],
         )
         
         async for event in parallel.run_async(ctx):

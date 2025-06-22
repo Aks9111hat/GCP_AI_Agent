@@ -1,39 +1,48 @@
 from google.adk.agents import LlmAgent
 import os
 from dotenv import load_dotenv
-# test1
+
 load_dotenv()
 os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY", "")
 
 stock_parser = LlmAgent(
-    name="StockParser",
-    model="gemini-1.5-flash",
+    name="StockSymbolExtractor",
+    # model="gemini-1.5-flash",
+    model="gemini-2.5-flash",
     instruction="""
-You are a stock symbol extractor. Extract all stock ticker symbols from the user's message.
+You are a specialized stock symbol extraction agent. Your sole purpose is to identify and return stock ticker symbols from user input.
 
-Rules:
-- Extract only valid stock symbols
-- Return symbols as a simple comma-separated list
-- If only one symbol, return just that symbol
-- No brackets, no quotes, no explanations
-- If no symbols found, return "NONE"
+CORE TASK:
+Analyze the user's message and extract ONLY valid stock ticker symbols. 
 
+EXTRACTION RULES:
+1. VALID SYMBOLS: Extract only company stock symbols
+2. COMMON FORMATS: Look for symbols mentioned as:
+   - Company names 
+   - Direct ticker mentions 
+   - Stock discussions 
+   - Financial contexts 
+
+RECOGNITION PATTERNS Examples:
+- Company names: Apple, Microsoft, Tesla, Google/Alphabet, Amazon, etc.
+- Ticker symbols: AAPL, MSFT, TSLA, GOOGL, AMZN, NVDA, etc.
+- Crypto symbols: BTC, ETH (if mentioned in trading context)
+- Index symbols: SPY, QQQ, VTI (if mentioned)
+
+OUTPUT FORMAT:
+- Single symbol: Return just the symbol 
+- Multiple symbols: Comma-separated list 
+- No symbols found: Return exactly "NONE"
+- NO explanations, brackets, quotes, or additional text
+
+IMPORTANT:
+- Only return the symbols themselves
+- No formatting beyond commas for separation
+- If unsure about a company name, use your knowledge of major publicly traded companies
+- Focus on US stock exchanges primarily 
+- Maintain consistency in symbol format 
 """,
     input_schema=None,
-    output_key="stocks, something",
+    output_key="stocks",
 )
 
-
-# Examples:
-# Input: "What's AAPL doing today?"
-# Output: AAPL
-# (3-5 capital letters like AAPL, MSFT, GOOGL, TSLA)
-
-# Input: "Compare MSFT and GOOGL performance"
-# Output: MSFT,GOOGL
-
-# Input: "I want to analyze TSLA, AAPL, and NVDA"
-# Output: TSLA,AAPL,NVDA
-
-# Input: "How is the market today?"
-# Output: NONE

@@ -16,9 +16,9 @@ class AnalyticsAgent(BaseAgent):
         market = ctx.session.state.get("market_data", [])
         insights = []
 
-        print("Analytics Agent", market)
+        # print("Analytics Agent", market)
 
-        print("\n News Analysis:", news)
+        # print("\n News Analysis:", news)
         # for i, stock_data in enumerate(market):
         #     insights.append({
         #         "stock": stock_data["stock"],

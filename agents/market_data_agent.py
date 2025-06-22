@@ -27,7 +27,13 @@ class MarketDataAgent(BaseAgent):
         try:
             logger.info(f"[{self.name}] Processing symbol: {stock}")
             ticker = yf.Ticker(stock)
+
+            print("123",ticker)
+
             df = yf.download(stock, period=period, interval=interval, progress=False)
+
+            print("456",df)
+
             df.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in df.columns]
             df.reset_index(inplace=True)
             if "Date" in df.columns:
@@ -125,7 +131,7 @@ class MarketDataAgent(BaseAgent):
                     raw_stocks = ast.literal_eval(raw_stocks)
                 except:
                     raw_stocks = [raw_stocks]
-
+            
             full_market_data = []
             for stock in raw_stocks:
                 logger.info(f"[{self.name}] Fetching market data for {stock}")
