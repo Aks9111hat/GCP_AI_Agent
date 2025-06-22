@@ -13,24 +13,26 @@ class AnalyticsAgent(BaseAgent):
     def __init__(self, name="AnalyticsAgent"):
         super().__init__(name=name)
     
-    def _extract_stock_data(self, market_data: List) -> Dict:
-        """Extract stock data from the nested structure"""
+    def _extract_all_stocks_data(self, market_data: List) -> List[Dict]:
+        """Extract all stock data from the nested structure"""
         try:
             if not market_data or not isinstance(market_data, list):
-                return {}
+                return []
             
-            stock_entry = market_data[0]
-            for symbol, data in stock_entry.items():
-                if isinstance(data, dict) and 'summary' in data:
-                    return {
-                        'symbol': symbol,
-                        'data': data['summary'],
-                        'price_history': data.get('price_data', [])
-                    }
-            return {}
+            all_stocks = []
+            for stock_entry in market_data:
+                if isinstance(stock_entry, dict):
+                    for symbol, data in stock_entry.items():
+                        if isinstance(data, dict) and 'summary' in data:
+                            all_stocks.append({
+                                'symbol': symbol,
+                                'data': data['summary'],
+                                'price_history': data.get('price_data', [])
+                            })
+            return all_stocks
         except Exception as e:
-            logger.error(f"Error extracting stock data: {e}")
-            return {}
+            logger.error(f"Error extracting stocks data: {e}")
+            return []
     
     def _analyze_technical_indicators(self, stock_data: Dict) -> Dict:
         """Comprehensive technical analysis"""
@@ -180,8 +182,101 @@ class AnalyticsAgent(BaseAgent):
             logger.error(f"Error in fundamental analysis: {e}")
             return {"error": "Fundamental analysis failed"}
     
+    def _analyze_multiple_stocks_news(self, news_data: List, symbols: List[str]) -> Dict[str, Dict]:
+        """Analyze news sentiment for multiple stocks"""
+        try:
+            if not news_data:
+                return {symbol: {"sentiment": "Neutral", "impact": "No recent news"} for symbol in symbols}
+            
+            # Group news by stock symbol if possible, otherwise apply to all
+            stock_news = {}
+            general_news = []
+            
+            for article in news_data:
+                title = article.get('title', '').upper()
+                content = article.get('content', '').upper()
+                article_text = f"{title} {content}"
+                
+                # Check if article mentions specific stocks
+                mentioned_stocks = [symbol for symbol in symbols if symbol.upper() in article_text]
+                
+                if mentioned_stocks:
+                    for symbol in mentioned_stocks:
+                        if symbol not in stock_news:
+                            stock_news[symbol] = []
+                        stock_news[symbol].append(article)
+                else:
+                    # General market news applies to all stocks
+                    general_news.append(article)
+            
+            # Analyze sentiment for each stock
+            results = {}
+            for symbol in symbols:
+                # Combine stock-specific news with general news
+                combined_news = stock_news.get(symbol, []) + general_news
+                results[symbol] = self._analyze_news_sentiment(combined_news)
+            
+            return results
+        except Exception as e:
+            logger.error(f"Error in multiple stocks news analysis: {e}")
+            return {symbol: {"sentiment": "Unknown", "impact": "News analysis failed"} for symbol in symbols}
     def _analyze_news_sentiment(self, news_data: List) -> Dict:
-        """Advanced news sentiment analysis"""
+        """Advanced news sentiment analysis for a single stock"""
+        try:
+            if not news_data:
+                return {"sentiment": "Neutral", "impact": "No recent news"}
+            
+            # Sentiment keywords
+            positive_words = ['growth', 'strong', 'beat', 'profit', 'increase', 'bullish', 'upgrade', 'outperform', 'buy', 'gains']
+            negative_words = ['decline', 'loss', 'weak', 'miss', 'decrease', 'bearish', 'downgrade', 'underperform', 'sell', 'falls']
+            neutral_words = ['analysis', 'report', 'update', 'position', 'hold']
+            
+            sentiment_score = 0
+            total_articles = len(news_data)
+            themes = []
+            
+            for article in news_data:
+                title = article.get('title', '').lower()
+                
+                # Count sentiment words
+                positive_count = sum(1 for word in positive_words if word in title)
+                negative_count = sum(1 for word in negative_words if word in title)
+                
+                if positive_count > negative_count:
+                    sentiment_score += 1
+                elif negative_count > positive_count:
+                    sentiment_score -= 1
+                
+                # Extract themes
+                if any(word in title for word in ['dividend', 'yield']):
+                    themes.append('Dividend Focus')
+                if any(word in title for word in ['position', 'investment', 'portfolio']):
+                    themes.append('Institutional Interest')
+                if any(word in title for word in ['competition', 'vs', 'compared']):
+                    themes.append('Competitive Analysis')
+                if any(word in title for word in ['earnings', 'profit', 'revenue']):
+                    themes.append('Financial Performance')
+            
+            # Overall sentiment
+            if sentiment_score > 1:
+                overall_sentiment = "Positive"
+            elif sentiment_score < -1:
+                overall_sentiment = "Negative"
+            else:
+                overall_sentiment = "Neutral"
+            
+            return {
+                "sentiment": overall_sentiment,
+                "sentiment_score": sentiment_score,
+                "total_articles": total_articles,
+                "key_themes": list(set(themes)),
+                "impact": f"{overall_sentiment} sentiment across {total_articles} recent articles"
+            }
+        except Exception as e:
+            logger.error(f"Error in news analysis: {e}")
+            return {"sentiment": "Unknown", "impact": "News analysis failed"}
+
+    def _analyze_multiple_stocks_news(self, news_data: List, symbols: List[str]) -> Dict[str, Dict]:
         try:
             if not news_data:
                 return {"sentiment": "Neutral", "impact": "No recent news"}
@@ -430,55 +525,172 @@ Please consult with a financial advisor before making investment decisions.*
         
         return report.strip()
     
+    def _generate_multi_stock_summary(self, all_analyses: List[Dict]) -> str:
+        """Generate a summary report for multiple stocks"""
+        
+        report = f"""
+🏢 **MULTI-STOCK PORTFOLIO ANALYSIS SUMMARY**
+═══════════════════════════════════════════════════════════════════════════════════════════
+
+**Analysis Date:** {datetime.now().strftime('%Y-%m-%d')} | **Total Stocks Analyzed:** {len(all_analyses)}
+
+"""
+        
+        # Portfolio Overview Table
+        report += """
+📊 **PORTFOLIO OVERVIEW**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+"""
+        
+        # Create a summary table
+        report += f"{'SYMBOL':<8} {'RATING':<12} {'SCORE':<6} {'MOMENTUM':<10} {'VALUATION':<12} {'SENTIMENT':<10}\n"
+        report += "─" * 70 + "\n"
+        
+        for analysis in all_analyses:
+            symbol = analysis['symbol']
+            recommendation = analysis['recommendations']
+            technical = analysis['technical_analysis']
+            fundamental = analysis['fundamental_analysis']
+            news = analysis['news_analysis']
+            
+            report += f"{symbol:<8} {recommendation.get('overall_action', 'HOLD'):<12} {recommendation.get('overall_score', 0):<6.1f} "
+            report += f"{technical.get('momentum', 'N/A'):<10} {fundamental.get('valuation', 'N/A'):<12} {news.get('sentiment', 'N/A'):<10}\n"
+        
+        # Best Performers
+        report += f"""
+
+🏆 **TOP PERFORMERS**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+        
+        # Sort by overall score
+        sorted_stocks = sorted(all_analyses, key=lambda x: x['recommendations'].get('overall_score', 0), reverse=True)
+        
+        for i, analysis in enumerate(sorted_stocks[:3], 1):
+            symbol = analysis['symbol']
+            score = analysis['recommendations'].get('overall_score', 0)
+            action = analysis['recommendations'].get('overall_action', 'HOLD')
+            momentum = analysis['technical_analysis'].get('momentum', 'N/A')
+            
+            report += f"{i}. **{symbol}** - Score: {score}/5.0 - {action} - {momentum} Momentum\n"
+        
+        # Risk Analysis
+        report += f"""
+
+⚠️ **PORTFOLIO RISK ANALYSIS**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+        
+        high_risk_stocks = [a for a in all_analyses if a['fundamental_analysis'].get('risk_level') == 'High Volatility']
+        low_risk_stocks = [a for a in all_analyses if a['fundamental_analysis'].get('risk_level') == 'Low Volatility']
+        
+        report += f"• High Risk Stocks: {len(high_risk_stocks)} ({', '.join([a['symbol'] for a in high_risk_stocks])})\n"
+        report += f"• Low Risk Stocks: {len(low_risk_stocks)} ({', '.join([a['symbol'] for a in low_risk_stocks])})\n"
+        
+        # Sector Diversification
+        sectors = {}
+        for analysis in all_analyses:
+            sector = self._get_sector_info(analysis['symbol'])
+            sectors[sector] = sectors.get(sector, 0) + 1
+        
+        report += f"\n• Sector Diversification: {', '.join([f'{sector} ({count})' for sector, count in sectors.items()])}\n"
+        
+        report += """
+
+═══════════════════════════════════════════════════════════════════════════════════════════
+*Note: Individual detailed reports are available for each stock in the analysis results.*
+        """
+        
+        return report.strip()
+    
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
         try:
             # Get data from session state
             market_data = ctx.session.state.get("market_data", [])
             news_data = ctx.session.state.get("news_analysis", [])
             
-            logger.info(f"Processing comprehensive analysis for {len(market_data)} stocks")
+            logger.info(f"Processing comprehensive analysis for market data")
             
-            # Extract stock data
-            stock_data = self._extract_stock_data(market_data)
+            # Extract all stocks data
+            all_stocks_data = self._extract_all_stocks_data(market_data)
             
-            if not stock_data:
+            if not all_stocks_data:
                 yield Event(
                     author="agent",
                     content=Content(parts=[Part(text="❌ No valid stock data found for comprehensive analysis.")])
                 )
                 return
             
-            # Perform comprehensive analysis
-            technical_analysis = self._analyze_technical_indicators(stock_data)
-            fundamental_analysis = self._analyze_fundamental_metrics(stock_data)
-            news_analysis = self._analyze_news_sentiment(news_data)
-            recommendations = self._generate_investment_recommendations(technical_analysis, fundamental_analysis, news_analysis)
+            # Get all symbols for news analysis
+            symbols = [stock['symbol'] for stock in all_stocks_data]
             
-            # Generate comprehensive report
-            comprehensive_report = self._generate_comprehensive_report(
-                stock_data.get('symbol', 'Unknown'),
-                technical_analysis,
-                fundamental_analysis,
-                news_analysis,
-                recommendations
-            )
+            # Analyze news for all stocks
+            all_news_analysis = self._analyze_multiple_stocks_news(news_data, symbols)
             
-            # Store comprehensive insights
-            ctx.session.state["stock_insights"] = {
-                "symbol": stock_data.get('symbol', 'Unknown'),
-                "technical_analysis": technical_analysis,
-                "fundamental_analysis": fundamental_analysis,
-                "news_analysis": news_analysis,
-                "recommendations": recommendations,
-                "comprehensive_report": comprehensive_report,
+            # Process each stock
+            all_analyses = []
+            individual_reports = []
+            
+            for stock_data in all_stocks_data:
+                symbol = stock_data['symbol']
+                
+                # Perform comprehensive analysis for this stock
+                technical_analysis = self._analyze_technical_indicators(stock_data)
+                fundamental_analysis = self._analyze_fundamental_metrics(stock_data)
+                news_analysis = all_news_analysis.get(symbol, {"sentiment": "Unknown", "impact": "No analysis"})
+                recommendations = self._generate_investment_recommendations(technical_analysis, fundamental_analysis, news_analysis)
+                
+                # Store individual stock analysis
+                stock_analysis = {
+                    "symbol": symbol,
+                    "technical_analysis": technical_analysis,
+                    "fundamental_analysis": fundamental_analysis,
+                    "news_analysis": news_analysis,
+                    "recommendations": recommendations,
+                    "analysis_timestamp": datetime.now().isoformat()
+                }
+                
+                all_analyses.append(stock_analysis)
+                
+                # Generate individual comprehensive report
+                individual_report = self._generate_comprehensive_report(
+                    symbol,
+                    technical_analysis,
+                    fundamental_analysis,
+                    news_analysis,
+                    recommendations
+                )
+                
+                individual_reports.append({
+                    "symbol": symbol,
+                    "report": individual_report
+                })
+            
+            # Generate multi-stock summary
+            portfolio_summary = self._generate_multi_stock_summary(all_analyses)
+            
+            # Store all analyses in session state
+            ctx.session.state["portfolio_insights"] = {
+                "summary": portfolio_summary,
+                "individual_analyses": all_analyses,
+                "individual_reports": individual_reports,
+                "total_stocks": len(all_analyses),
                 "analysis_timestamp": datetime.now().isoformat()
             }
             
-            # Send the comprehensive report
+            # Send the portfolio summary first
             yield Event(
                 author="agent",
-                content=Content(parts=[Part(text=comprehensive_report)])
+                content=Content(parts=[Part(text=portfolio_summary)])
             )
+            
+            # Send individual reports
+            for report_data in individual_reports:
+                yield Event(
+                    author="agent",
+                    content=Content(parts=[Part(text=f"\n\n{'='*50}\n{report_data['report']}")])
+                )
             
         except Exception as e:
             logger.error(f"Error in comprehensive analytics: {e}")

@@ -4,6 +4,8 @@ import logging
 from typing import AsyncGenerator, Optional
 from typing_extensions import override
 from pydantic import Field
+from typing import Any, Dict, List
+import yfinance as yf
 
 from google.adk.agents import BaseAgent, ParallelAgent, SequentialAgent, LlmAgent
 from google.adk.agents.invocation_context import InvocationContext
@@ -12,7 +14,7 @@ from google.genai.types import Content, Part
 
 logger = logging.getLogger(__name__)
 
-class StockInsightsAgent(BaseAgent):
+class MarketDataAgent(BaseAgent):
     # Define fields with default None and exclude from serialization
     stock_parser: Optional[LlmAgent] = Field(default=None, exclude=True)
     news_agent: Optional[BaseAgent] = Field(default=None, exclude=True)
@@ -23,7 +25,7 @@ class StockInsightsAgent(BaseAgent):
 
     model_config = {"arbitrary_types_allowed": True}
 
-    def __init__(self, name="Market_Data_Agent"):
+    def __init__(self, name="MarketDataAgent"):
         super().__init__(name=name)
 
     async def fetch_data_sync(self, stock, period="5d", interval="1d"):
@@ -46,6 +48,7 @@ class StockInsightsAgent(BaseAgent):
 
             price_data_dict = df.to_dict(orient="records")
             info = ticker.info
+            print("Nimish",price_data_dict)
             
 
             summary = {
@@ -111,14 +114,33 @@ class StockInsightsAgent(BaseAgent):
         return "\n".join(lines)
     
     def format_price_data(self, records: List[Dict[str, Any]]) -> str:
+
         lines = []
+        sample_record = records[0]
+        def find_column(patterns):
+            for pattern in patterns:
+              for key in sample_record.keys():
+                if pattern.lower() in key.lower():
+                    return key
+            return None
+        
+    
+        open_col = find_column(['open'])
+        high_col = find_column(['high'])
+        low_col = find_column(['low'])
+        close_col = find_column(['close'])
+        volume_col = find_column(['volume'])
+        date_col = find_column(['date'])
+    
+    # Format each record
         for row in records:
-            lines.append(
-                f"📅 {row.get('Date')}:\n"
-                f"• Open: ${row.get('Open_MSFT', 'N/A')} | High: ${row.get('High_MSFT', 'N/A')} | "
-                f"Low: ${row.get('Low_MSFT', 'N/A')} | Close: ${row.get('Close_MSFT', 'N/A')} | "
-                f"Volume: {int(row.get('Volume_MSFT', 0)):,}"
-            )
+          lines.append(
+            f"📅 {row.get(date_col, 'N/A')}:\n"
+            f"• Open: ${row.get(open_col, 'N/A')} | High: ${row.get(high_col, 'N/A')} | "
+            f"Low: ${row.get(low_col, 'N/A')} | Close: ${row.get(close_col, 'N/A')} | "
+            f"Volume: {int(row.get(volume_col, 0)) if row.get(volume_col) else 'N/A':,}"
+          )
+    
         return "\n\n".join(lines)
 
 
